@@ -1,0 +1,492 @@
+1) Make the model, migration, and controller
+
+Run this:
+
+php artisan make:model Post -mcr
+php artisan storage:link
+
+
+
+
+
+2) Migration
+
+File: database/migrations/xxxx_xx_xx_xxxxxx_create_posts_table.php
+
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('posts', function (Blueprint $table) {
+            $table->id();
+            $table->string('title');
+            $table->text('content');
+            $table->text('comment')->nullable();
+            $table->string('image_path')->nullable();
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('posts');
+    }
+};
+
+
+
+
+
+
+3) Model
+
+File: app/Models/Post.php
+
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Post extends Model
+{
+    protected $fillable = [
+        'title',
+        'content',
+        'comment',
+        'image_path',
+    ];
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+4) Controller
+
+File: app/Http/Controllers/PostController.php
+
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Post;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+
+class PostController extends Controller
+{
+    public function index()
+    {
+        $posts = Post::latest()->paginate(10);
+        return view('posts.index', compact('posts'));
+    }
+
+    public function create()
+    {
+        return view('posts.create');
+    }
+
+    public function store(Request $request)
+    {
+        $request->validate([
+            'title' => 'required|string|max:255',
+            'content' => 'required|string',
+            'comment' => 'nullable|string',
+            'image' => 'nullable|image|mimes:jpg,jpeg,png,gif,webp|max:2048',
+        ]);
+
+        $imagePath = null;
+
+        if ($request->hasFile('image')) {
+            $imagePath = $request->file('image')->store('posts', 'public');
+        }
+
+        Post::create([
+            'title' => $request->title,
+            'content' => $request->content,
+            'comment' => $request->comment,
+            'image_path' => $imagePath,
+        ]);
+
+        return redirect()->route('posts.index')->with('success', 'Post created successfully.');
+    }
+
+    public function show(Post $post)
+    {
+        return view('posts.show', compact('post'));
+    }
+
+    public function edit(Post $post)
+    {
+        return view('posts.edit', compact('post'));
+    }
+
+    public function update(Request $request, Post $post)
+    {
+        $request->validate([
+            'title' => 'required|string|max:255',
+            'content' => 'required|string',
+            'comment' => 'nullable|string',
+            'image' => 'nullable|image|mimes:jpg,jpeg,png,gif,webp|max:2048',
+        ]);
+
+        $data = [
+            'title' => $request->title,
+            'content' => $request->content,
+            'comment' => $request->comment,
+        ];
+
+        if ($request->hasFile('image')) {
+            if ($post->image_path && Storage::disk('public')->exists($post->image_path)) {
+                Storage::disk('public')->delete($post->image_path);
+            }
+
+            $data['image_path'] = $request->file('image')->store('posts', 'public');
+        }
+
+        $post->update($data);
+
+        return redirect()->route('posts.index')->with('success', 'Post updated successfully.');
+    }
+
+    public function destroy(Post $post)
+    {
+        if ($post->image_path && Storage::disk('public')->exists($post->image_path)) {
+            Storage::disk('public')->delete($post->image_path);
+        }
+
+        $post->delete();
+
+        return redirect()->route('posts.index')->with('success', 'Post deleted successfully.');
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+5) Routes
+
+File: routes/web.php
+
+<?php
+
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\PostController;
+
+Route::get('/', function () {
+    return redirect()->route('posts.index');
+});
+
+Route::resource('posts', PostController::class);
+
+
+
+
+
+
+
+
+
+6) Layout
+
+File: resources/views/layouts/app.blade.php
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>@yield('title', 'Simple CRUD')</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f7f7f7; }
+        .container { max-width: 900px; margin: auto; background: white; padding: 20px; border-radius: 10px; }
+        a, button { cursor: pointer; }
+        input, textarea { width: 100%; padding: 10px; margin-top: 6px; margin-bottom: 14px; box-sizing: border-box; }
+        .btn { display: inline-block; padding: 8px 12px; border: none; border-radius: 6px; text-decoration: none; }
+        .btn-primary { background: #2563eb; color: white; }
+        .btn-success { background: #16a34a; color: white; }
+        .btn-danger { background: #dc2626; color: white; }
+        .btn-secondary { background: #6b7280; color: white; }
+        .alert { padding: 10px; margin-bottom: 15px; border-radius: 6px; background: #dcfce7; }
+        img { max-width: 180px; border-radius: 8px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 10px; border-bottom: 1px solid #ddd; text-align: left; vertical-align: top; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        @yield('content')
+    </div>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+7) Index page
+
+File: resources/views/posts/index.blade.php
+
+@extends('layouts.app')
+
+@section('title', 'Posts')
+
+@section('content')
+    <h1>Posts</h1>
+
+    @if(session('success'))
+        <div class="alert">{{ session('success') }}</div>
+    @endif
+
+    <a href="{{ route('posts.create') }}" class="btn btn-success">Add New</a>
+
+    <br><br>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Image</th>
+                <th>Title</th>
+                <th>Content</th>
+                <th>Comment</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @forelse($posts as $post)
+                <tr>
+                    <td>
+                        @if($post->image_path)
+                            <img src="{{ asset('storage/' . $post->image_path) }}" alt="Image">
+                        @else
+                            No image
+                        @endif
+                    </td>
+                    <td>{{ $post->title }}</td>
+                    <td>{{ $post->content }}</td>
+                    <td>{{ $post->comment ?? '—' }}</td>
+                    <td>
+                        <a href="{{ route('posts.show', $post) }}" class="btn btn-primary">View</a>
+                        <a href="{{ route('posts.edit', $post) }}" class="btn btn-secondary">Edit</a>
+
+                        <form action="{{ route('posts.destroy', $post) }}" method="POST" style="display:inline;">
+                            @csrf
+                            @method('DELETE')
+                            <button type="submit" class="btn btn-danger" onclick="return confirm('Delete this post?')">
+                                Delete
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+            @empty
+                <tr>
+                    <td colspan="5">No posts found.</td>
+                </tr>
+            @endforelse
+        </tbody>
+    </table>
+
+    <br>
+    {{ $posts->links() }}
+@endsection
+
+
+
+
+
+
+
+
+
+8) Create page
+
+File: resources/views/posts/create.blade.php
+
+@extends('layouts.app')
+
+@section('title', 'Add Post')
+
+@section('content')
+    <h1>Add Post</h1>
+
+    @if ($errors->any())
+        <div class="alert">
+            <ul>
+                @foreach ($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+
+    <form action="{{ route('posts.store') }}" method="POST" enctype="multipart/form-data">
+        @csrf
+
+        <label>Title</label>
+        <input type="text" name="title" value="{{ old('title') }}">
+
+        <label>Content</label>
+        <textarea name="content" rows="5">{{ old('content') }}</textarea>
+
+        <label>Comment</label>
+        <textarea name="comment" rows="3">{{ old('comment') }}</textarea>
+
+        <label>Image</label>
+        <input type="file" name="image">
+
+        <button type="submit" class="btn btn-success">Save</button>
+        <a href="{{ route('posts.index') }}" class="btn btn-secondary">Back</a>
+    </form>
+@endsection
+
+
+
+
+
+
+9) Edit page
+
+File: resources/views/posts/edit.blade.php
+
+@extends('layouts.app')
+
+@section('title', 'Edit Post')
+
+@section('content')
+    <h1>Edit Post</h1>
+
+    @if ($errors->any())
+        <div class="alert">
+            <ul>
+                @foreach ($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+
+    <form action="{{ route('posts.update', $post) }}" method="POST" enctype="multipart/form-data">
+        @csrf
+        @method('PUT')
+
+        <label>Title</label>
+        <input type="text" name="title" value="{{ old('title', $post->title) }}">
+
+        <label>Content</label>
+        <textarea name="content" rows="5">{{ old('content', $post->content) }}</textarea>
+
+        <label>Comment</label>
+        <textarea name="comment" rows="3">{{ old('comment', $post->comment) }}</textarea>
+
+        <label>Current Image</label><br>
+        @if($post->image_path)
+            <img src="{{ asset('storage/' . $post->image_path) }}" alt="Current Image">
+        @else
+            No image
+        @endif
+
+        <br><br>
+        <label>Change Image</label>
+        <input type="file" name="image">
+
+        <button type="submit" class="btn btn-success">Update</button>
+        <a href="{{ route('posts.index') }}" class="btn btn-secondary">Back</a>
+    </form>
+@endsection
+
+
+
+
+
+
+10) Show page
+
+File: resources/views/posts/show.blade.php
+
+@extends('layouts.app')
+
+@section('title', 'View Post')
+
+@section('content')
+    <h1>View Post</h1>
+
+    <p><strong>Title:</strong> {{ $post->title }}</p>
+    <p><strong>Content:</strong> {{ $post->content }}</p>
+    <p><strong>Comment:</strong> {{ $post->comment ?? '—' }}</p>
+
+    <p><strong>Image:</strong></p>
+    @if($post->image_path)
+        <img src="{{ asset('storage/' . $post->image_path) }}" alt="Image">
+    @else
+        <p>No image</p>
+    @endif
+
+    <br><br>
+    <a href="{{ route('posts.edit', $post) }}" class="btn btn-secondary">Edit</a>
+    <a href="{{ route('posts.index') }}" class="btn btn-primary">Back</a>
+@endsection
+
+
+
+
+
+
+
+
+
+What names you should change
+
+Change these only if your database uses different names:
+
+posts = table name
+Post = model name
+posts.index, posts.create, etc. = route/view folder names
+title = text title column
+content = main text column
+comment = comment column
+image_path = image filename/path column
+
+If your database columns are different, change them in these 4 places:
+migration, model $fillable, controller, and blade forms.
+
+After pasting all files
+
+Run:
+php artisan migrate
+
+Then open:
+php artisan serve
+
+and visit:
+http://127.0.0.1:8000/posts
