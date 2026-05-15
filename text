@@ -9,11 +9,7 @@ LARAVEL CRUD WITH BREEZE
 STEP 1 — COMMANDS
 ================================================================
 
-Run these in your terminal first:
-
-
     php artisan make:model Post -mcr
-
     php artisan storage:link
 
 
@@ -40,7 +36,6 @@ File: database/migrations/xxxx_create_posts_table.php
                 $table->id();
                 $table->string('title');
                 $table->text('content');
-                $table->text('comment')->nullable();
                 $table->string('image_path')->nullable();
                 $table->timestamps();
             });
@@ -73,7 +68,6 @@ File: app/Models/Post.php
         protected $fillable = [
             'title',
             'content',
-            'comment',
             'image_path',
         ];
     }
@@ -98,29 +92,22 @@ File: app/Http/Controllers/PostController.php
 
     class PostController extends Controller
     {
-
-        // Show all posts
         public function index()
         {
             $posts = Post::latest()->paginate(10);
             return view('posts.index', compact('posts'));
         }
 
-
-        // Show blank form
         public function create()
         {
             return view('posts.create');
         }
 
-
-        // Save new post
         public function store(Request $request)
         {
             $request->validate([
                 'title'   => 'required|string|max:255',
                 'content' => 'required|string',
-                'comment' => 'nullable|string',
                 'image'   => 'nullable|image|mimes:jpg,jpeg,png,gif,webp|max:2048',
             ]);
 
@@ -133,42 +120,33 @@ File: app/Http/Controllers/PostController.php
             Post::create([
                 'title'      => $request->title,
                 'content'    => $request->content,
-                'comment'    => $request->comment,
                 'image_path' => $imagePath,
             ]);
 
             return redirect()->route('posts.index')->with('success', 'Post created successfully.');
         }
 
-
-        // Show one post
         public function show(Post $post)
         {
             return view('posts.show', compact('post'));
         }
 
-
-        // Show filled form
         public function edit(Post $post)
         {
             return view('posts.edit', compact('post'));
         }
 
-
-        // Save edited post
         public function update(Request $request, Post $post)
         {
             $request->validate([
                 'title'   => 'required|string|max:255',
                 'content' => 'required|string',
-                'comment' => 'nullable|string',
                 'image'   => 'nullable|image|mimes:jpg,jpeg,png,gif,webp|max:2048',
             ]);
 
             $data = [
                 'title'   => $request->title,
                 'content' => $request->content,
-                'comment' => $request->comment,
             ];
 
             if ($request->hasFile('image')) {
@@ -183,8 +161,6 @@ File: app/Http/Controllers/PostController.php
             return redirect()->route('posts.index')->with('success', 'Post updated successfully.');
         }
 
-
-        // Delete post
         public function destroy(Post $post)
         {
             if ($post->image_path && Storage::disk('public')->exists($post->image_path)) {
@@ -195,7 +171,6 @@ File: app/Http/Controllers/PostController.php
 
             return redirect()->route('posts.index')->with('success', 'Post deleted successfully.');
         }
-
     }
 
 
@@ -230,10 +205,7 @@ File: routes/web.php
 STEP 6 — LAYOUT
 ================================================================
 
-SKIP THIS STEP.
-
-Breeze already made the layout for you.
-Do not create or edit any layout file.
+SKIP. Breeze already made this for you.
 
 
 
@@ -251,14 +223,11 @@ File: resources/views/posts/index.blade.php
             <h2>Posts</h2>
         </x-slot>
 
-
         @if(session('success'))
             <p>{{ session('success') }}</p>
         @endif
 
-
         <a href="{{ route('posts.create') }}">Add New</a>
-
 
         <table border="1" cellpadding="8">
             <thead>
@@ -266,7 +235,6 @@ File: resources/views/posts/index.blade.php
                     <th>Image</th>
                     <th>Title</th>
                     <th>Content</th>
-                    <th>Comment</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -280,36 +248,28 @@ File: resources/views/posts/index.blade.php
                                 No image
                             @endif
                         </td>
-
                         <td>{{ $post->title }}</td>
-
                         <td>{{ $post->content }}</td>
-
-                        <td>{{ $post->comment ?? '—' }}</td>
-
                         <td>
                             <a href="{{ route('posts.show', $post) }}">View</a>
-
                             <a href="{{ route('posts.edit', $post) }}">Edit</a>
 
                             <form action="{{ route('posts.destroy', $post) }}" method="POST" style="display:inline;">
                                 @csrf
                                 @method('DELETE')
-                                <button type="submit" onclick="return confirm('Delete this post?')">Delete</button>
+                                <button type="submit" onclick="return confirm('Delete?')">Delete</button>
                             </form>
                         </td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="5">No posts found.</td>
+                        <td colspan="4">No posts found.</td>
                     </tr>
                 @endforelse
             </tbody>
         </table>
 
-
         {{ $posts->links() }}
-
 
     </x-app-layout>
 
@@ -329,7 +289,6 @@ File: resources/views/posts/create.blade.php
             <h2>Add Post</h2>
         </x-slot>
 
-
         @if($errors->any())
             <ul>
                 @foreach($errors->all() as $error)
@@ -338,35 +297,25 @@ File: resources/views/posts/create.blade.php
             </ul>
         @endif
 
-
         <form action="{{ route('posts.store') }}" method="POST" enctype="multipart/form-data">
             @csrf
 
             <label>Title</label><br>
             <input type="text" name="title" value="{{ old('title') }}">
-
             <br><br>
 
             <label>Content</label><br>
             <textarea name="content" rows="5">{{ old('content') }}</textarea>
-
-            <br><br>
-
-            <label>Comment</label><br>
-            <textarea name="comment" rows="3">{{ old('comment') }}</textarea>
-
             <br><br>
 
             <label>Image</label><br>
             <input type="file" name="image">
-
             <br><br>
 
             <button type="submit">Save</button>
             <a href="{{ route('posts.index') }}">Back</a>
 
         </form>
-
 
     </x-app-layout>
 
@@ -386,7 +335,6 @@ File: resources/views/posts/edit.blade.php
             <h2>Edit Post</h2>
         </x-slot>
 
-
         @if($errors->any())
             <ul>
                 @foreach($errors->all() as $error)
@@ -395,24 +343,16 @@ File: resources/views/posts/edit.blade.php
             </ul>
         @endif
 
-
         <form action="{{ route('posts.update', $post) }}" method="POST" enctype="multipart/form-data">
             @csrf
             @method('PUT')
 
             <label>Title</label><br>
             <input type="text" name="title" value="{{ old('title', $post->title) }}">
-
             <br><br>
 
             <label>Content</label><br>
             <textarea name="content" rows="5">{{ old('content', $post->content) }}</textarea>
-
-            <br><br>
-
-            <label>Comment</label><br>
-            <textarea name="comment" rows="3">{{ old('comment', $post->comment) }}</textarea>
-
             <br><br>
 
             <label>Current Image</label><br>
@@ -421,19 +361,16 @@ File: resources/views/posts/edit.blade.php
             @else
                 No image
             @endif
-
             <br><br>
 
             <label>Change Image</label><br>
             <input type="file" name="image">
-
             <br><br>
 
             <button type="submit">Update</button>
             <a href="{{ route('posts.index') }}">Back</a>
 
         </form>
-
 
     </x-app-layout>
 
@@ -453,14 +390,9 @@ File: resources/views/posts/show.blade.php
             <h2>View Post</h2>
         </x-slot>
 
-
         <p><strong>Title:</strong> {{ $post->title }}</p>
-
         <p><strong>Content:</strong> {{ $post->content }}</p>
 
-        <p><strong>Comment:</strong> {{ $post->comment ?? '—' }}</p>
-
-        <p><strong>Image:</strong></p>
         @if($post->image_path)
             <img src="{{ asset('storage/' . $post->image_path) }}" width="100">
         @else
@@ -472,7 +404,6 @@ File: resources/views/posts/show.blade.php
         <a href="{{ route('posts.edit', $post) }}">Edit</a>
         <a href="{{ route('posts.index') }}">Back</a>
 
-
     </x-app-layout>
 
 
@@ -482,37 +413,22 @@ File: resources/views/posts/show.blade.php
 STEP 11 — FINAL COMMANDS
 ================================================================
 
-Run these after pasting all files:
-
-
     php artisan migrate
-
     php artisan serve
 
-
-Then visit:
-
-    http://127.0.0.1:8000/posts
-
-Breeze will ask you to log in first. That is normal.
+Visit: http://127.0.0.1:8000/posts
 
 
 
 
 ================================================================
-WHAT TO CHANGE FOR A DIFFERENT PROJECT
+IF YOUR COLUMNS ARE DIFFERENT — CHANGE THESE 4 PLACES
 ================================================================
 
-Only touch these 4 files when your columns are different:
-
-    1. Migration  →  add or rename columns
-    2. Model      →  update $fillable list
-    3. Controller →  update column names in store() and update()
-    4. Views      →  update name="" and {{ $post->column }}
-
-Also rename:
-    "Post"   →  your model name
-    "posts"  →  your table and route name
+    1. Migration  — column names
+    2. Model      — $fillable list
+    3. Controller — column names inside store() and update()
+    4. Views      — name="" attributes and {{ $post->column }}
 
 
 
