@@ -1,5 +1,5 @@
 ================================================================
-LARAVEL CRUD WITH BREEZE
+LARAVEL CRUD — Post (title + image) + Breeze
 ================================================================
 
 
@@ -35,7 +35,6 @@ File: database/migrations/xxxx_create_posts_table.php
             Schema::create('posts', function (Blueprint $table) {
                 $table->id();
                 $table->string('title');
-                $table->text('content');
                 $table->string('image_path')->nullable();
                 $table->timestamps();
             });
@@ -67,7 +66,6 @@ File: app/Models/Post.php
     {
         protected $fillable = [
             'title',
-            'content',
             'image_path',
         ];
     }
@@ -106,9 +104,8 @@ File: app/Http/Controllers/PostController.php
         public function store(Request $request)
         {
             $request->validate([
-                'title'   => 'required|string|max:255',
-                'content' => 'required|string',
-                'image'   => 'nullable|image|mimes:jpg,jpeg,png,gif,webp|max:2048',
+                'title' => 'required|string|max:255',
+                'image' => 'nullable|image|mimes:jpg,jpeg,png,gif,webp|max:2048',
             ]);
 
             $imagePath = null;
@@ -119,7 +116,6 @@ File: app/Http/Controllers/PostController.php
 
             Post::create([
                 'title'      => $request->title,
-                'content'    => $request->content,
                 'image_path' => $imagePath,
             ]);
 
@@ -139,14 +135,12 @@ File: app/Http/Controllers/PostController.php
         public function update(Request $request, Post $post)
         {
             $request->validate([
-                'title'   => 'required|string|max:255',
-                'content' => 'required|string',
-                'image'   => 'nullable|image|mimes:jpg,jpeg,png,gif,webp|max:2048',
+                'title' => 'required|string|max:255',
+                'image' => 'nullable|image|mimes:jpg,jpeg,png,gif,webp|max:2048',
             ]);
 
             $data = [
-                'title'   => $request->title,
-                'content' => $request->content,
+                'title' => $request->title,
             ];
 
             if ($request->hasFile('image')) {
@@ -207,6 +201,15 @@ STEP 6 — LAYOUT
 
 SKIP. Breeze already made this for you.
 
+But remove the @vite line from both files below
+so you don't need to run npm:
+
+File: resources/views/layouts/app.blade.php
+File: resources/views/layouts/guest.blade.php
+
+    DELETE THIS LINE:
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
+
 
 
 
@@ -234,7 +237,6 @@ File: resources/views/posts/index.blade.php
                 <tr>
                     <th>Image</th>
                     <th>Title</th>
-                    <th>Content</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -249,7 +251,6 @@ File: resources/views/posts/index.blade.php
                             @endif
                         </td>
                         <td>{{ $post->title }}</td>
-                        <td>{{ $post->content }}</td>
                         <td>
                             <a href="{{ route('posts.show', $post) }}">View</a>
                             <a href="{{ route('posts.edit', $post) }}">Edit</a>
@@ -263,7 +264,7 @@ File: resources/views/posts/index.blade.php
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="4">No posts found.</td>
+                        <td colspan="3">No posts found.</td>
                     </tr>
                 @endforelse
             </tbody>
@@ -302,10 +303,6 @@ File: resources/views/posts/create.blade.php
 
             <label>Title</label><br>
             <input type="text" name="title" value="{{ old('title') }}">
-            <br><br>
-
-            <label>Content</label><br>
-            <textarea name="content" rows="5">{{ old('content') }}</textarea>
             <br><br>
 
             <label>Image</label><br>
@@ -351,10 +348,6 @@ File: resources/views/posts/edit.blade.php
             <input type="text" name="title" value="{{ old('title', $post->title) }}">
             <br><br>
 
-            <label>Content</label><br>
-            <textarea name="content" rows="5">{{ old('content', $post->content) }}</textarea>
-            <br><br>
-
             <label>Current Image</label><br>
             @if($post->image_path)
                 <img src="{{ asset('storage/' . $post->image_path) }}" width="100">
@@ -391,7 +384,6 @@ File: resources/views/posts/show.blade.php
         </x-slot>
 
         <p><strong>Title:</strong> {{ $post->title }}</p>
-        <p><strong>Content:</strong> {{ $post->content }}</p>
 
         @if($post->image_path)
             <img src="{{ asset('storage/' . $post->image_path) }}" width="100">
@@ -417,18 +409,6 @@ STEP 11 — FINAL COMMANDS
     php artisan serve
 
 Visit: http://127.0.0.1:8000/posts
-
-
-
-
-================================================================
-IF YOUR COLUMNS ARE DIFFERENT — CHANGE THESE 4 PLACES
-================================================================
-
-    1. Migration  — column names
-    2. Model      — $fillable list
-    3. Controller — column names inside store() and update()
-    4. Views      — name="" attributes and {{ $post->column }}
 
 
 
