@@ -1,0 +1,191 @@
+1) Run these commands
+bashphp artisan make:model Post -mcr
+php artisan storage:link
+
+2) Migration — unchanged
+php// database/migrations/xxxx_create_posts_table.php
+$table->id();
+$table->string('title');
+$table->text('content');
+$table->text('comment')->nullable();
+$table->string('image_path')->nullable();
+$table->timestamps();
+
+3) Model — unchanged
+phpprotected $fillable = ['title', 'content', 'comment', 'image_path'];
+
+4) Controller — unchanged, paste as-is
+
+5) Routes — add auth middleware
+php// routes/web.php
+use App\Http\Controllers\PostController;
+
+Route::middleware('auth')->group(function () {
+    Route::resource('posts', PostController::class);
+});
+
+6) Layout — SKIP, Breeze already created layouts/app.blade.php
+
+7) Index page
+blade{{-- resources/views/posts/index.blade.php --}}
+<x-app-layout>
+    <x-slot name="header">
+        <h2>Posts</h2>
+    </x-slot>
+
+    @if(session('success'))
+        <p>{{ session('success') }}</p>
+    @endif
+
+    <a href="{{ route('posts.create') }}">Add New</a>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Image</th>
+                <th>Title</th>
+                <th>Content</th>
+                <th>Comment</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @forelse($posts as $post)
+                <tr>
+                    <td>
+                        @if($post->image_path)
+                            <img src="{{ asset('storage/' . $post->image_path) }}" alt="Image" width="100">
+                        @else
+                            No image
+                        @endif
+                    </td>
+                    <td>{{ $post->title }}</td>
+                    <td>{{ $post->content }}</td>
+                    <td>{{ $post->comment ?? '—' }}</td>
+                    <td>
+                        <a href="{{ route('posts.show', $post) }}">View</a>
+                        <a href="{{ route('posts.edit', $post) }}">Edit</a>
+                        <form action="{{ route('posts.destroy', $post) }}" method="POST" style="display:inline;">
+                            @csrf
+                            @method('DELETE')
+                            <button type="submit" onclick="return confirm('Delete this post?')">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+            @empty
+                <tr>
+                    <td colspan="5">No posts found.</td>
+                </tr>
+            @endforelse
+        </tbody>
+    </table>
+
+    {{ $posts->links() }}
+</x-app-layout>
+
+8) Create page
+blade{{-- resources/views/posts/create.blade.php --}}
+<x-app-layout>
+    <x-slot name="header">
+        <h2>Add Post</h2>
+    </x-slot>
+
+    @if($errors->any())
+        <ul>
+            @foreach($errors->all() as $error)
+                <li>{{ $error }}</li>
+            @endforeach
+        </ul>
+    @endif
+
+    <form action="{{ route('posts.store') }}" method="POST" enctype="multipart/form-data">
+        @csrf
+
+        <label>Title</label><br>
+        <input type="text" name="title" value="{{ old('title') }}"><br>
+
+        <label>Content</label><br>
+        <textarea name="content" rows="5">{{ old('content') }}</textarea><br>
+
+        <label>Comment</label><br>
+        <textarea name="comment" rows="3">{{ old('comment') }}</textarea><br>
+
+        <label>Image</label><br>
+        <input type="file" name="image"><br><br>
+
+        <button type="submit">Save</button>
+        <a href="{{ route('posts.index') }}">Back</a>
+    </form>
+</x-app-layout>
+
+9) Edit page
+blade{{-- resources/views/posts/edit.blade.php --}}
+<x-app-layout>
+    <x-slot name="header">
+        <h2>Edit Post</h2>
+    </x-slot>
+
+    @if($errors->any())
+        <ul>
+            @foreach($errors->all() as $error)
+                <li>{{ $error }}</li>
+            @endforeach
+        </ul>
+    @endif
+
+    <form action="{{ route('posts.update', $post) }}" method="POST" enctype="multipart/form-data">
+        @csrf
+        @method('PUT')
+
+        <label>Title</label><br>
+        <input type="text" name="title" value="{{ old('title', $post->title) }}"><br>
+
+        <label>Content</label><br>
+        <textarea name="content" rows="5">{{ old('content', $post->content) }}</textarea><br>
+
+        <label>Comment</label><br>
+        <textarea name="comment" rows="3">{{ old('comment', $post->comment) }}</textarea><br>
+
+        <label>Current Image</label><br>
+        @if($post->image_path)
+            <img src="{{ asset('storage/' . $post->image_path) }}" alt="Current Image" width="100">
+        @else
+            No image
+        @endif
+
+        <br><br>
+        <label>Change Image</label><br>
+        <input type="file" name="image"><br><br>
+
+        <button type="submit">Update</button>
+        <a href="{{ route('posts.index') }}">Back</a>
+    </form>
+</x-app-layout>
+
+10) Show page
+blade{{-- resources/views/posts/show.blade.php --}}
+<x-app-layout>
+    <x-slot name="header">
+        <h2>View Post</h2>
+    </x-slot>
+
+    <p><strong>Title:</strong> {{ $post->title }}</p>
+    <p><strong>Content:</strong> {{ $post->content }}</p>
+    <p><strong>Comment:</strong> {{ $post->comment ?? '—' }}</p>
+
+    <p><strong>Image:</strong></p>
+    @if($post->image_path)
+        <img src="{{ asset('storage/' . $post->image_path) }}" alt="Image" width="100">
+    @else
+        <p>No image</p>
+    @endif
+
+    <br><br>
+    <a href="{{ route('posts.edit', $post) }}">Edit</a>
+    <a href="{{ route('posts.index') }}">Back</a>
+</x-app-layout>
+
+11) Run migration and serve
+bashphp artisan migrate
+php artisan serve
+Visit http://127.0.0.1:8000/posts — Breeze will redirect you to login first since the routes are protected by auth.
