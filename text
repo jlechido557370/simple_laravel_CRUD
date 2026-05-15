@@ -1,0 +1,522 @@
+================================================================
+LARAVEL CRUD WITH BREEZE
+================================================================
+
+
+
+
+================================================================
+STEP 1 — COMMANDS
+================================================================
+
+Run these in your terminal first:
+
+
+    php artisan make:model Post -mcr
+
+    php artisan storage:link
+
+
+
+
+================================================================
+STEP 2 — MIGRATION
+================================================================
+
+File: database/migrations/xxxx_create_posts_table.php
+
+
+    <?php
+
+    use Illuminate\Database\Migrations\Migration;
+    use Illuminate\Database\Schema\Blueprint;
+    use Illuminate\Support\Facades\Schema;
+
+    return new class extends Migration
+    {
+        public function up(): void
+        {
+            Schema::create('posts', function (Blueprint $table) {
+                $table->id();
+                $table->string('title');
+                $table->text('content');
+                $table->text('comment')->nullable();
+                $table->string('image_path')->nullable();
+                $table->timestamps();
+            });
+        }
+
+        public function down(): void
+        {
+            Schema::dropIfExists('posts');
+        }
+    };
+
+
+
+
+================================================================
+STEP 3 — MODEL
+================================================================
+
+File: app/Models/Post.php
+
+
+    <?php
+
+    namespace App\Models;
+
+    use Illuminate\Database\Eloquent\Model;
+
+    class Post extends Model
+    {
+        protected $fillable = [
+            'title',
+            'content',
+            'comment',
+            'image_path',
+        ];
+    }
+
+
+
+
+================================================================
+STEP 4 — CONTROLLER
+================================================================
+
+File: app/Http/Controllers/PostController.php
+
+
+    <?php
+
+    namespace App\Http\Controllers;
+
+    use App\Models\Post;
+    use Illuminate\Http\Request;
+    use Illuminate\Support\Facades\Storage;
+
+    class PostController extends Controller
+    {
+
+        // Show all posts
+        public function index()
+        {
+            $posts = Post::latest()->paginate(10);
+            return view('posts.index', compact('posts'));
+        }
+
+
+        // Show blank form
+        public function create()
+        {
+            return view('posts.create');
+        }
+
+
+        // Save new post
+        public function store(Request $request)
+        {
+            $request->validate([
+                'title'   => 'required|string|max:255',
+                'content' => 'required|string',
+                'comment' => 'nullable|string',
+                'image'   => 'nullable|image|mimes:jpg,jpeg,png,gif,webp|max:2048',
+            ]);
+
+            $imagePath = null;
+
+            if ($request->hasFile('image')) {
+                $imagePath = $request->file('image')->store('posts', 'public');
+            }
+
+            Post::create([
+                'title'      => $request->title,
+                'content'    => $request->content,
+                'comment'    => $request->comment,
+                'image_path' => $imagePath,
+            ]);
+
+            return redirect()->route('posts.index')->with('success', 'Post created successfully.');
+        }
+
+
+        // Show one post
+        public function show(Post $post)
+        {
+            return view('posts.show', compact('post'));
+        }
+
+
+        // Show filled form
+        public function edit(Post $post)
+        {
+            return view('posts.edit', compact('post'));
+        }
+
+
+        // Save edited post
+        public function update(Request $request, Post $post)
+        {
+            $request->validate([
+                'title'   => 'required|string|max:255',
+                'content' => 'required|string',
+                'comment' => 'nullable|string',
+                'image'   => 'nullable|image|mimes:jpg,jpeg,png,gif,webp|max:2048',
+            ]);
+
+            $data = [
+                'title'   => $request->title,
+                'content' => $request->content,
+                'comment' => $request->comment,
+            ];
+
+            if ($request->hasFile('image')) {
+                if ($post->image_path && Storage::disk('public')->exists($post->image_path)) {
+                    Storage::disk('public')->delete($post->image_path);
+                }
+                $data['image_path'] = $request->file('image')->store('posts', 'public');
+            }
+
+            $post->update($data);
+
+            return redirect()->route('posts.index')->with('success', 'Post updated successfully.');
+        }
+
+
+        // Delete post
+        public function destroy(Post $post)
+        {
+            if ($post->image_path && Storage::disk('public')->exists($post->image_path)) {
+                Storage::disk('public')->delete($post->image_path);
+            }
+
+            $post->delete();
+
+            return redirect()->route('posts.index')->with('success', 'Post deleted successfully.');
+        }
+
+    }
+
+
+
+
+================================================================
+STEP 5 — ROUTES
+================================================================
+
+File: routes/web.php
+
+
+    <?php
+
+    use Illuminate\Support\Facades\Route;
+    use App\Http\Controllers\PostController;
+
+    Route::middleware('auth')->group(function () {
+
+        Route::get('/', function () {
+            return redirect()->route('posts.index');
+        });
+
+        Route::resource('posts', PostController::class);
+
+    });
+
+
+
+
+================================================================
+STEP 6 — LAYOUT
+================================================================
+
+SKIP THIS STEP.
+
+Breeze already made the layout for you.
+Do not create or edit any layout file.
+
+
+
+
+================================================================
+STEP 7 — INDEX PAGE
+================================================================
+
+File: resources/views/posts/index.blade.php
+
+
+    <x-app-layout>
+
+        <x-slot name="header">
+            <h2>Posts</h2>
+        </x-slot>
+
+
+        @if(session('success'))
+            <p>{{ session('success') }}</p>
+        @endif
+
+
+        <a href="{{ route('posts.create') }}">Add New</a>
+
+
+        <table border="1" cellpadding="8">
+            <thead>
+                <tr>
+                    <th>Image</th>
+                    <th>Title</th>
+                    <th>Content</th>
+                    <th>Comment</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @forelse($posts as $post)
+                    <tr>
+                        <td>
+                            @if($post->image_path)
+                                <img src="{{ asset('storage/' . $post->image_path) }}" width="100">
+                            @else
+                                No image
+                            @endif
+                        </td>
+
+                        <td>{{ $post->title }}</td>
+
+                        <td>{{ $post->content }}</td>
+
+                        <td>{{ $post->comment ?? '—' }}</td>
+
+                        <td>
+                            <a href="{{ route('posts.show', $post) }}">View</a>
+
+                            <a href="{{ route('posts.edit', $post) }}">Edit</a>
+
+                            <form action="{{ route('posts.destroy', $post) }}" method="POST" style="display:inline;">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" onclick="return confirm('Delete this post?')">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                @empty
+                    <tr>
+                        <td colspan="5">No posts found.</td>
+                    </tr>
+                @endforelse
+            </tbody>
+        </table>
+
+
+        {{ $posts->links() }}
+
+
+    </x-app-layout>
+
+
+
+
+================================================================
+STEP 8 — CREATE PAGE
+================================================================
+
+File: resources/views/posts/create.blade.php
+
+
+    <x-app-layout>
+
+        <x-slot name="header">
+            <h2>Add Post</h2>
+        </x-slot>
+
+
+        @if($errors->any())
+            <ul>
+                @foreach($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        @endif
+
+
+        <form action="{{ route('posts.store') }}" method="POST" enctype="multipart/form-data">
+            @csrf
+
+            <label>Title</label><br>
+            <input type="text" name="title" value="{{ old('title') }}">
+
+            <br><br>
+
+            <label>Content</label><br>
+            <textarea name="content" rows="5">{{ old('content') }}</textarea>
+
+            <br><br>
+
+            <label>Comment</label><br>
+            <textarea name="comment" rows="3">{{ old('comment') }}</textarea>
+
+            <br><br>
+
+            <label>Image</label><br>
+            <input type="file" name="image">
+
+            <br><br>
+
+            <button type="submit">Save</button>
+            <a href="{{ route('posts.index') }}">Back</a>
+
+        </form>
+
+
+    </x-app-layout>
+
+
+
+
+================================================================
+STEP 9 — EDIT PAGE
+================================================================
+
+File: resources/views/posts/edit.blade.php
+
+
+    <x-app-layout>
+
+        <x-slot name="header">
+            <h2>Edit Post</h2>
+        </x-slot>
+
+
+        @if($errors->any())
+            <ul>
+                @foreach($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        @endif
+
+
+        <form action="{{ route('posts.update', $post) }}" method="POST" enctype="multipart/form-data">
+            @csrf
+            @method('PUT')
+
+            <label>Title</label><br>
+            <input type="text" name="title" value="{{ old('title', $post->title) }}">
+
+            <br><br>
+
+            <label>Content</label><br>
+            <textarea name="content" rows="5">{{ old('content', $post->content) }}</textarea>
+
+            <br><br>
+
+            <label>Comment</label><br>
+            <textarea name="comment" rows="3">{{ old('comment', $post->comment) }}</textarea>
+
+            <br><br>
+
+            <label>Current Image</label><br>
+            @if($post->image_path)
+                <img src="{{ asset('storage/' . $post->image_path) }}" width="100">
+            @else
+                No image
+            @endif
+
+            <br><br>
+
+            <label>Change Image</label><br>
+            <input type="file" name="image">
+
+            <br><br>
+
+            <button type="submit">Update</button>
+            <a href="{{ route('posts.index') }}">Back</a>
+
+        </form>
+
+
+    </x-app-layout>
+
+
+
+
+================================================================
+STEP 10 — SHOW PAGE
+================================================================
+
+File: resources/views/posts/show.blade.php
+
+
+    <x-app-layout>
+
+        <x-slot name="header">
+            <h2>View Post</h2>
+        </x-slot>
+
+
+        <p><strong>Title:</strong> {{ $post->title }}</p>
+
+        <p><strong>Content:</strong> {{ $post->content }}</p>
+
+        <p><strong>Comment:</strong> {{ $post->comment ?? '—' }}</p>
+
+        <p><strong>Image:</strong></p>
+        @if($post->image_path)
+            <img src="{{ asset('storage/' . $post->image_path) }}" width="100">
+        @else
+            <p>No image</p>
+        @endif
+
+        <br><br>
+
+        <a href="{{ route('posts.edit', $post) }}">Edit</a>
+        <a href="{{ route('posts.index') }}">Back</a>
+
+
+    </x-app-layout>
+
+
+
+
+================================================================
+STEP 11 — FINAL COMMANDS
+================================================================
+
+Run these after pasting all files:
+
+
+    php artisan migrate
+
+    php artisan serve
+
+
+Then visit:
+
+    http://127.0.0.1:8000/posts
+
+Breeze will ask you to log in first. That is normal.
+
+
+
+
+================================================================
+WHAT TO CHANGE FOR A DIFFERENT PROJECT
+================================================================
+
+Only touch these 4 files when your columns are different:
+
+    1. Migration  →  add or rename columns
+    2. Model      →  update $fillable list
+    3. Controller →  update column names in store() and update()
+    4. Views      →  update name="" and {{ $post->column }}
+
+Also rename:
+    "Post"   →  your model name
+    "posts"  →  your table and route name
+
+
+
+
+================================================================
+END
+================================================================
